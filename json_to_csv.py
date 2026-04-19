@@ -59,13 +59,20 @@ def iter_json_array_records(file_path, chunk_size=1024 * 1024):
     state = "start"
 
     with open(file_path, "r", encoding="utf-8") as f:
+        def read_more():
+            nonlocal buf, eof
+            if eof:
+                return False
+            chunk = f.read(chunk_size)
+            if chunk:
+                buf += chunk
+                return True
+            eof = True
+            return False
+
         while True:
             if idx >= len(buf) and not eof:
-                chunk = f.read(chunk_size)
-                if chunk:
-                    buf += chunk
-                else:
-                    eof = True
+                read_more()
 
             if idx > 0 and idx > len(buf) // 2:
                 buf = buf[idx:]
@@ -106,6 +113,7 @@ def iter_json_array_records(file_path, chunk_size=1024 * 1024):
                 except json.JSONDecodeError:
                     if eof:
                         raise ValueError("JSON invalido o incompleto en el array.")
+                    read_more()
                     continue
 
                 idx = end
