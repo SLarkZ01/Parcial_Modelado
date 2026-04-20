@@ -59,6 +59,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.compose import ColumnTransformer
@@ -173,6 +174,24 @@ for col in ['genre', 'country', 'label', 'artist_name', 'track_name', 'album_nam
     if col in df_limpio.columns:
         df_limpio[col] = df_limpio[col].astype('string').str.strip()
 
+mapa_genero_es = {
+    'Pop': 'Pop',
+    'Rock': 'Rock',
+    'Hip-Hop': 'Hip-Hop',
+    'R&B': 'R y B',
+    'EDM': 'Electronica (EDM)',
+    'Jazz': 'Jazz',
+    'Classical': 'Clasica',
+    'Country': 'Country',
+    'Indie': 'Indie',
+    'Metal': 'Metal',
+    'Folk': 'Folk',
+    'Reggaeton': 'Regueton',
+}
+
+df_limpio['genero_es'] = df_limpio['genre'].map(mapa_genero_es).fillna(df_limpio['genre'])
+df_limpio['explicita_es'] = df_limpio['explicit'].astype(int).map({0: 'No explicita', 1: 'Explicita'})
+
 # Conversion de fechas
 df_limpio['release_date'] = pd.to_datetime(df_limpio['release_date'], errors='coerce')
 df_limpio['release_year'] = df_limpio['release_date'].dt.year
@@ -184,7 +203,7 @@ df_limpio = df_limpio.drop_duplicates(subset=['track_id']).reset_index(drop=True
 print(f'Duplicados eliminados por track_id: {antes - len(df_limpio)}')
 
 # Tipos categoricos de baja y media cardinalidad
-for col in ['genre', 'country', 'label', 'explicit', 'mode', 'key']:
+for col in ['genre', 'genero_es', 'country', 'label', 'explicita_es', 'explicit', 'mode', 'key']:
     if col in df_limpio.columns:
         df_limpio[col] = df_limpio[col].astype('category')
 
@@ -201,7 +220,7 @@ cells.append(
 resumen = {
     'registros': int(df_limpio.shape[0]),
     'columnas': int(df_limpio.shape[1]),
-    'generos_unicos': int(df_limpio['genre'].nunique()),
+    'generos_unicos': int(df_limpio['genero_es'].nunique()),
     'paises_unicos': int(df_limpio['country'].nunique()),
     'labels_unicos': int(df_limpio['label'].nunique()),
     'popularidad_promedio': float(df_limpio['popularity'].mean()),
@@ -216,19 +235,25 @@ cells.append(md("## 8. Visualizaciones principales (Matplotlib OO API)"))
 cells.append(
     code(
         """
-# Top generos (conteo y porcentaje)
-conteo_genero = df_limpio['genre'].value_counts().sort_values(ascending=False)
-porc_genero = (conteo_genero / conteo_genero.sum() * 100).round(1)
+# Participacion por genero (ordenado y legible para exposicion)
+conteo_genero = df_limpio['genero_es'].value_counts().sort_values(ascending=True)
+total_canciones = conteo_genero.sum()
+porc_genero = (conteo_genero / total_canciones * 100).round(1)
 
-fig, ax = plt.subplots(figsize=(11, 5), constrained_layout=True)
-bars = ax.bar(conteo_genero.index, conteo_genero.values, color='tab:blue', alpha=0.85)
-ax.set_title('Distribucion de canciones por genero')
-ax.set_xlabel('Genero')
-ax.set_ylabel('Cantidad de canciones')
-ax.tick_params(axis='x', rotation=30)
+fig, ax = plt.subplots(figsize=(11, 6.5), constrained_layout=True)
+palette = sns.color_palette('Blues', n_colors=len(conteo_genero))
+bars = ax.barh(conteo_genero.index, conteo_genero.values, color=palette)
 
-for b, p in zip(bars, porc_genero.values):
-    ax.text(b.get_x() + b.get_width() / 2, b.get_height(), f'{p}%', ha='center', va='bottom', fontsize=8)
+ax.set_title('Participacion de canciones por genero')
+ax.set_xlabel('Cantidad de canciones')
+ax.set_ylabel('Genero musical')
+ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{int(x):,}".replace(',', '.')))
+ax.set_xlim(0, conteo_genero.max() * 1.18)
+ax.grid(axis='x', alpha=0.25)
+
+for bar, valor, porc in zip(bars, conteo_genero.values, porc_genero.values):
+    etiqueta = f"{valor:,}".replace(',', '.') + f" ({porc}%)"
+    ax.text(valor + total_canciones * 0.0018, bar.get_y() + bar.get_height() / 2, etiqueta, va='center', fontsize=8)
 
 plt.show()
 """
@@ -238,15 +263,46 @@ plt.show()
 cells.append(
     code(
         """
-# Evolucion por anio de lanzamiento
+# Evolucion por anio de lanzamiento con puntos clave
 serie_anual = df_limpio.groupby('release_year').size().sort_index()
+variacion_anual = (serie_anual.pct_change() * 100).round(2)
+promedio_anual = serie_anual.mean()
+anio_max = int(serie_anual.idxmax())
+anio_min = int(serie_anual.idxmin())
 
 fig, ax = plt.subplots(figsize=(10, 4.5), constrained_layout=True)
-ax.plot(serie_anual.index, serie_anual.values, marker='o', linewidth=2.0, color='tab:green')
+ax.plot(serie_anual.index, serie_anual.values, marker='o', linewidth=2.2, color='tab:green', label='Canciones por anio')
+ax.axhline(promedio_anual, color='tab:orange', linestyle='--', linewidth=1.5, label=f'Promedio anual: {promedio_anual:,.0f}'.replace(',', '.'))
 ax.set_title('Evolucion anual de lanzamientos (2015-2025)')
 ax.set_xlabel('Anio')
 ax.set_ylabel('Cantidad de canciones')
+ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{int(x):,}".replace(',', '.')))
 ax.grid(True, alpha=0.3)
+ax.legend(loc='best')
+
+ax.annotate(
+    f"Maximo: {serie_anual[anio_max]:,}".replace(',', '.') + f" ({anio_max})",
+    xy=(anio_max, serie_anual[anio_max]),
+    xytext=(anio_max - 1.2, serie_anual[anio_max] + 80),
+    arrowprops={'arrowstyle': '->', 'color': 'black', 'lw': 1},
+    fontsize=9,
+)
+ax.annotate(
+    f"Minimo: {serie_anual[anio_min]:,}".replace(',', '.') + f" ({anio_min})",
+    xy=(anio_min, serie_anual[anio_min]),
+    xytext=(anio_min + 0.3, serie_anual[anio_min] - 90),
+    arrowprops={'arrowstyle': '->', 'color': 'black', 'lw': 1},
+    fontsize=9,
+)
+
+display(
+    pd.DataFrame({
+        'anio': serie_anual.index,
+        'canciones': serie_anual.values,
+        'variacion_%_vs_anio_anterior': variacion_anual.values,
+    }).tail(6)
+)
+
 plt.show()
 """
     )
@@ -255,16 +311,46 @@ plt.show()
 cells.append(
     code(
         """
-# Popularidad por genero (boxplot de top 8)
-top8 = df_limpio['genre'].value_counts().head(8).index
-df_top8 = df_limpio[df_limpio['genre'].isin(top8)].copy()
+# Popularidad por genero (ordenado por mediana)
+top10 = df_limpio['genero_es'].value_counts().head(10).index
+df_top10 = df_limpio[df_limpio['genero_es'].isin(top10)].copy()
+orden_mediana = (
+    df_top10.groupby('genero_es')['popularity']
+    .median()
+    .sort_values(ascending=False)
+    .index
+)
 
 fig, ax = plt.subplots(figsize=(11, 5), constrained_layout=True)
-sns.boxplot(data=df_top8, x='genre', y='popularity', ax=ax, palette='tab10')
-ax.set_title('Distribucion de popularidad por genero (top 8)')
+sns.boxplot(
+    data=df_top10,
+    x='genero_es',
+    y='popularity',
+    order=orden_mediana,
+    ax=ax,
+    palette='Set2',
+    showfliers=False,
+)
+ax.set_title('Distribucion de popularidad por genero (top 10 por volumen)')
 ax.set_xlabel('Genero')
 ax.set_ylabel('Popularidad')
 ax.tick_params(axis='x', rotation=30)
+
+resumen_pop = (
+    df_top10.groupby('genero_es')['popularity']
+    .agg(['median', 'mean', 'std', 'min', 'max'])
+    .rename(columns={
+        'median': 'mediana',
+        'mean': 'promedio',
+        'std': 'desv_estandar',
+        'min': 'minimo',
+        'max': 'maximo',
+    })
+    .round(2)
+    .sort_values(by='mediana', ascending=False)
+)
+display(resumen_pop)
+
 plt.show()
 """
     )
@@ -273,23 +359,43 @@ plt.show()
 cells.append(
     code(
         """
-# Relacion danceability vs energy con color por popularidad
-sample_scatter = df_limpio.sample(n=min(7000, len(df_limpio)), random_state=42)
+# Relacion bailabilidad vs energia (densidad + tendencia)
+sample_scatter = df_limpio.sample(n=min(12000, len(df_limpio)), random_state=42)
 
 fig, ax = plt.subplots(figsize=(10, 5), constrained_layout=True)
-sc = ax.scatter(
+hb = ax.hexbin(
     sample_scatter['danceability'],
     sample_scatter['energy'],
-    c=sample_scatter['popularity'],
     cmap='viridis',
-    alpha=0.55,
-    s=14,
+    gridsize=35,
+    mincnt=1,
 )
-ax.set_title('Danceability vs Energy (color = popularity)')
-ax.set_xlabel('Danceability')
-ax.set_ylabel('Energy')
-cbar = plt.colorbar(sc, ax=ax)
-cbar.set_label('Popularidad')
+ax.set_title('Bailabilidad vs energia (densidad de canciones)')
+ax.set_xlabel('Bailabilidad')
+ax.set_ylabel('Energia')
+cbar = plt.colorbar(hb, ax=ax)
+cbar.set_label('Cantidad de canciones')
+
+# Tendencia lineal para apoyar explicacion verbal
+x = sample_scatter['danceability'].to_numpy()
+y = sample_scatter['energy'].to_numpy()
+coef = np.polyfit(x, y, 1)
+x_line = np.linspace(x.min(), x.max(), 100)
+y_line = coef[0] * x_line + coef[1]
+ax.plot(x_line, y_line, color='white', linewidth=2.0, label='Tendencia lineal')
+
+corr_xy = np.corrcoef(x, y)[0, 1]
+ax.text(
+    0.02,
+    0.97,
+    f"Correlacion: {corr_xy:.2f}",
+    transform=ax.transAxes,
+    va='top',
+    fontsize=10,
+    bbox={'facecolor': 'white', 'alpha': 0.75, 'edgecolor': 'none'},
+)
+ax.legend(loc='lower right')
+
 plt.show()
 """
     )
@@ -307,9 +413,55 @@ num_df = df_limpio[cols_num].copy()
 num_df['explicit'] = num_df['explicit'].astype(int)
 num_df['mode'] = num_df['mode'].astype(int)
 
+corr = num_df.corr(numeric_only=True)
+traduccion_vars = {
+    'duration_ms': 'duracion_ms',
+    'popularity': 'popularidad',
+    'danceability': 'bailabilidad',
+    'energy': 'energia',
+    'key': 'tonalidad',
+    'loudness': 'sonoridad',
+    'mode': 'modo',
+    'instrumentalness': 'instrumentalidad',
+    'tempo': 'tempo',
+    'stream_count': 'reproducciones',
+    'explicit': 'explicita',
+}
+
+corr_es = corr.rename(index=traduccion_vars, columns=traduccion_vars)
+mask = np.triu(np.ones_like(corr_es, dtype=bool))
+
 fig, ax = plt.subplots(figsize=(10, 7), constrained_layout=True)
-sns.heatmap(num_df.corr(numeric_only=True), cmap='coolwarm', center=0, ax=ax)
-ax.set_title('Matriz de correlacion - Spotify')
+sns.heatmap(
+    corr_es,
+    mask=mask,
+    cmap='RdBu_r',
+    center=0,
+    vmin=-1,
+    vmax=1,
+    annot=True,
+    fmt='.2f',
+    linewidths=0.4,
+    cbar_kws={'label': 'Correlacion'},
+    ax=ax,
+)
+ax.set_title('Matriz de correlacion - Spotify (triangular)')
+
+pairs = (
+    corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
+    .stack()
+    .sort_values(key=lambda s: s.abs(), ascending=False)
+    .head(6)
+)
+
+tabla_corr = pairs.reset_index()
+tabla_corr.columns = ['variable_1', 'variable_2', 'correlacion']
+tabla_corr['variable_1'] = tabla_corr['variable_1'].map(traduccion_vars)
+tabla_corr['variable_2'] = tabla_corr['variable_2'].map(traduccion_vars)
+tabla_corr['correlacion'] = tabla_corr['correlacion'].round(3)
+print('Top 6 correlaciones (valor absoluto):')
+display(tabla_corr)
+
 plt.show()
 """
     )
@@ -319,7 +471,7 @@ cells.append(md("## 9. Modelo de clasificacion tabular (objetivo: genre)"))
 cells.append(
     code(
         """
-target = 'genre'
+target = 'genero_es'
 
 df_modelo = df_limpio.copy()
 df_modelo = df_modelo[df_modelo[target].notna()].copy()
@@ -333,7 +485,7 @@ df_modelo = df_modelo[df_modelo[target].astype(str).isin(generos_validos)].copy(
 df_modelo['release_year'] = pd.to_datetime(df_modelo['release_date'], errors='coerce').dt.year
 df_modelo['release_month'] = pd.to_datetime(df_modelo['release_date'], errors='coerce').dt.month
 
-cols_excluir = {'track_id', 'track_name', 'artist_name', 'album_name', 'release_date', target}
+cols_excluir = {'track_id', 'track_name', 'artist_name', 'album_name', 'release_date', 'genre', 'genero_es'}
 X = df_modelo[[c for c in df_modelo.columns if c not in cols_excluir]].copy()
 y = df_modelo[target].astype(str)
 
@@ -408,11 +560,20 @@ print('\nReporte de clasificacion (tabular):')
 print(classification_report(y_test, pred_mejor))
 
 labels = sorted(y.unique())
-cm = confusion_matrix(y_test, pred_mejor, labels=labels)
+cm = confusion_matrix(y_test, pred_mejor, labels=labels, normalize='true')
 
 fig, ax = plt.subplots(figsize=(10, 8), constrained_layout=True)
-sns.heatmap(cm, cmap='Blues', ax=ax, xticklabels=labels, yticklabels=labels)
-ax.set_title(f'Matriz de confusion - {mejor_nombre}')
+sns.heatmap(
+    cm,
+    cmap='Blues',
+    ax=ax,
+    xticklabels=labels,
+    yticklabels=labels,
+    annot=True,
+    fmt='.1%',
+    cbar_kws={'label': 'Proporcion por genero real'},
+)
+ax.set_title(f'Matriz de confusion normalizada - {mejor_nombre}')
 ax.set_xlabel('Prediccion')
 ax.set_ylabel('Real')
 ax.tick_params(axis='x', rotation=45)
@@ -427,7 +588,7 @@ cells.append(
     code(
         """
 df_nlp = df_limpio.copy()
-df_nlp = df_nlp[df_nlp['genre'].notna()].copy()
+df_nlp = df_nlp[df_nlp['genero_es'].notna()].copy()
 
 texto_cols = ['track_name', 'artist_name', 'album_name', 'label', 'country']
 texto_cols = [c for c in texto_cols if c in df_nlp.columns]
@@ -441,12 +602,12 @@ df_nlp['texto'] = (
     .str.strip()
 )
 
-conteo_nlp = df_nlp['genre'].astype(str).value_counts()
+conteo_nlp = df_nlp['genero_es'].astype(str).value_counts()
 generos_nlp_validos = conteo_nlp[conteo_nlp >= 30].index
-df_nlp = df_nlp[df_nlp['genre'].astype(str).isin(generos_nlp_validos)].copy()
+df_nlp = df_nlp[df_nlp['genero_es'].astype(str).isin(generos_nlp_validos)].copy()
 
 X_text = df_nlp['texto']
-y_text = df_nlp['genre'].astype(str)
+y_text = df_nlp['genero_es'].astype(str)
 
 Xtr, Xte, ytr, yte = train_test_split(X_text, y_text, test_size=0.2, random_state=42, stratify=y_text)
 
@@ -486,7 +647,7 @@ api_key = os.getenv('OPENAI_API_KEY')
 resumen_modelos = resultados_df.to_dict(orient='records') if 'resultados_df' in globals() else []
 contexto = {
     'registros': int(df_limpio.shape[0]),
-    'generos_top': df_limpio['genre'].astype(str).value_counts().head(8).to_dict(),
+    'generos_top': df_limpio['genero_es'].astype(str).value_counts().head(8).to_dict(),
     'paises_top': df_limpio['country'].astype(str).value_counts().head(8).to_dict(),
     'labels_top': df_limpio['label'].astype(str).value_counts().head(8).to_dict(),
     'modelos_tabulares': resumen_modelos,
