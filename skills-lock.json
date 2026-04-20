@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "matplotlib": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "computedHash": "585d3ae58225ee637bc0ea34b5714aa3f8fd21579c567fb66d920af11c824be6"
+    }
+  }
+}
