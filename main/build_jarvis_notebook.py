@@ -33,7 +33,20 @@ cells.append(
 
 ---
 
-Este cuaderno esta centrado en un dataset de Spotify. Incluye analisis exploratorio de datos (AED), modelos de clasificacion, procesamiento de lenguaje natural y asistencia con OpenAI para generar resumenes y responder preguntas en lenguaje natural.
+Este cuaderno integra los temas solicitados: analisis exploratorio de datos (AED), modelos de clasificacion, modelos de lenguaje de procesamiento natural (NLP) e IA generativa con OpenAI.
+"""
+    )
+)
+
+cells.append(
+    md(
+        """
+## Mapa de aplicacion de temas
+
+1. **AED**: secciones 5, 6, 7 y 8 (calidad de datos, limpieza, visualizacion e interpretacion).  
+2. **Modelos de clasificacion**: seccion 9 (clasificacion tabular de genero musical).  
+3. **Modelos de lenguaje NLP**: seccion 10 (TF-IDF + Regresion Logistica).  
+4. **Modelos de IA OpenAI**: seccion 11 (resumen ejecutivo y Q&A sobre hallazgos).
 """
     )
 )
@@ -77,7 +90,7 @@ import openai
 
 warnings.filterwarnings("ignore")
 
-# Estilo con buenas practicas de matplotlib (skill)
+# Configuracion visual basada en buenas practicas de matplotlib
 plt.style.use("seaborn-v0_8-whitegrid")
 plt.rcParams["figure.dpi"] = 120
 plt.rcParams["savefig.dpi"] = 300
@@ -86,6 +99,7 @@ plt.rcParams["axes.labelsize"] = 11
 plt.rcParams["legend.fontsize"] = 10
 plt.rcParams["xtick.labelsize"] = 9
 plt.rcParams["ytick.labelsize"] = 9
+
 pd.set_option("display.max_columns", 120)
 
 print("Entorno listo")
@@ -137,7 +151,15 @@ df.head()
     )
 )
 
-cells.append(md("## 5. Exploracion inicial y calidad de datos"))
+cells.append(md("## 5. AED - Exploracion inicial y calidad de datos"))
+cells.append(
+    md(
+        """
+**Concepto tecnico:** *AED (Analisis Exploratorio de Datos)* es el proceso de revisar estructura, tipos, nulos y patrones antes de modelar.  
+**Objetivo:** entender la calidad del dataset para evitar errores y decisiones sesgadas.
+"""
+    )
+)
 cells.append(
     code(
         """
@@ -165,15 +187,24 @@ perfil_nulos.head(20)
 
 cells.append(md("## 6. Limpieza y transformacion"))
 cells.append(
+    md(
+        """
+**Concepto tecnico:** *preprocesamiento* significa preparar datos para analisis/modelado (tipos correctos, variables coherentes, duplicados).  
+**Objetivo:** garantizar que cada variable tenga formato util para graficas y modelos.
+"""
+    )
+)
+cells.append(
     code(
         """
 df_limpio = df.copy()
 
-# Normalizacion de texto
+# Normalizacion de texto en columnas relevantes
 for col in ['genre', 'country', 'label', 'artist_name', 'track_name', 'album_name']:
     if col in df_limpio.columns:
         df_limpio[col] = df_limpio[col].astype('string').str.strip()
 
+# Traduccion de generos al espanol para facilitar exposicion
 mapa_genero_es = {
     'Pop': 'Pop',
     'Rock': 'Rock',
@@ -188,21 +219,22 @@ mapa_genero_es = {
     'Folk': 'Folk',
     'Reggaeton': 'Regueton',
 }
-
 df_limpio['genero_es'] = df_limpio['genre'].map(mapa_genero_es).fillna(df_limpio['genre'])
+
+# Variable explicita traducida para lectura verbal
 df_limpio['explicita_es'] = df_limpio['explicit'].astype(int).map({0: 'No explicita', 1: 'Explicita'})
 
-# Conversion de fechas
+# Conversion de fecha a formato temporal para analisis de tendencia
 df_limpio['release_date'] = pd.to_datetime(df_limpio['release_date'], errors='coerce')
 df_limpio['release_year'] = df_limpio['release_date'].dt.year
 df_limpio['release_month'] = df_limpio['release_date'].dt.month
 
-# Eliminar duplicados por track_id
+# Eliminar duplicados por id de pista
 antes = len(df_limpio)
 df_limpio = df_limpio.drop_duplicates(subset=['track_id']).reset_index(drop=True)
 print(f'Duplicados eliminados por track_id: {antes - len(df_limpio)}')
 
-# Tipos categoricos de baja y media cardinalidad
+# Conversion a categoricas para eficiencia y coherencia semantica
 for col in ['genre', 'genero_es', 'country', 'label', 'explicita_es', 'explicit', 'mode', 'key']:
     if col in df_limpio.columns:
         df_limpio[col] = df_limpio[col].astype('category')
@@ -231,11 +263,12 @@ resumen
     )
 )
 
-cells.append(md("## 8. Visualizaciones principales (Matplotlib OO API)"))
+cells.append(md("## 8. AED - Visualizaciones e interpretacion"))
+
 cells.append(
     code(
         """
-# Participacion por genero (ordenado y legible para exposicion)
+# 8.1 Participacion por genero (barras horizontales)
 conteo_genero = df_limpio['genero_es'].value_counts().sort_values(ascending=True)
 total_canciones = conteo_genero.sum()
 porc_genero = (conteo_genero / total_canciones * 100).round(1)
@@ -261,16 +294,27 @@ plt.show()
 )
 
 cells.append(
+    md(
+        """
+**Lectura rapida - Grafica 8.1**  
+- **Que muestra:** porcentaje y volumen de canciones por genero.  
+- **Como leerla:** una barra mas larga indica mayor presencia del genero en la muestra.  
+- **Conclusion clave:** permite identificar si el dataset esta balanceado o no por genero.
+"""
+    )
+)
+
+cells.append(
     code(
         """
-# Evolucion por anio de lanzamiento con puntos clave
+# 8.2 Evolucion anual de lanzamientos
 serie_anual = df_limpio.groupby('release_year').size().sort_index()
 variacion_anual = (serie_anual.pct_change() * 100).round(2)
 promedio_anual = serie_anual.mean()
 anio_max = int(serie_anual.idxmax())
 anio_min = int(serie_anual.idxmin())
 
-fig, ax = plt.subplots(figsize=(10, 4.5), constrained_layout=True)
+fig, ax = plt.subplots(figsize=(10, 4.8), constrained_layout=True)
 ax.plot(serie_anual.index, serie_anual.values, marker='o', linewidth=2.2, color='tab:green', label='Canciones por anio')
 ax.axhline(promedio_anual, color='tab:orange', linestyle='--', linewidth=1.5, label=f'Promedio anual: {promedio_anual:,.0f}'.replace(',', '.'))
 ax.set_title('Evolucion anual de lanzamientos (2015-2025)')
@@ -309,9 +353,20 @@ plt.show()
 )
 
 cells.append(
+    md(
+        """
+**Lectura rapida - Grafica 8.2**  
+- **Que muestra:** tendencia temporal de volumen de lanzamientos.  
+- **Como leerla:** picos y valles reflejan anos con mayor/menor produccion relativa.  
+- **Conclusion clave:** se observan fluctuaciones anuales, no una tendencia lineal fuerte.
+"""
+    )
+)
+
+cells.append(
     code(
         """
-# Popularidad por genero (ordenado por mediana)
+# 8.3 Popularidad por genero (boxplot ordenado por mediana)
 top10 = df_limpio['genero_es'].value_counts().head(10).index
 df_top10 = df_limpio[df_limpio['genero_es'].isin(top10)].copy()
 orden_mediana = (
@@ -335,6 +390,7 @@ ax.set_title('Distribucion de popularidad por genero (top 10 por volumen)')
 ax.set_xlabel('Genero')
 ax.set_ylabel('Popularidad')
 ax.tick_params(axis='x', rotation=30)
+plt.show()
 
 resumen_pop = (
     df_top10.groupby('genero_es')['popularity']
@@ -350,8 +406,17 @@ resumen_pop = (
     .sort_values(by='mediana', ascending=False)
 )
 display(resumen_pop)
+"""
+    )
+)
 
-plt.show()
+cells.append(
+    md(
+        """
+**Lectura rapida - Grafica 8.3**  
+- **Que muestra:** distribucion de popularidad por genero usando medianas y dispersion.  
+- **Como leerla:** la linea central de cada caja es la mediana; cajas mas altas indican mas variabilidad.  
+- **Conclusion clave:** algunos generos concentran mayor popularidad central y otros tienen resultados mas dispersos.
 """
     )
 )
@@ -359,7 +424,7 @@ plt.show()
 cells.append(
     code(
         """
-# Relacion bailabilidad vs energia (densidad + tendencia)
+# 8.4 Bailabilidad vs energia (densidad + tendencia)
 sample_scatter = df_limpio.sample(n=min(12000, len(df_limpio)), random_state=42)
 
 fig, ax = plt.subplots(figsize=(10, 5), constrained_layout=True)
@@ -376,7 +441,7 @@ ax.set_ylabel('Energia')
 cbar = plt.colorbar(hb, ax=ax)
 cbar.set_label('Cantidad de canciones')
 
-# Tendencia lineal para apoyar explicacion verbal
+# Tendencia lineal para apoyar interpretacion verbal
 x = sample_scatter['danceability'].to_numpy()
 y = sample_scatter['energy'].to_numpy()
 coef = np.polyfit(x, y, 1)
@@ -395,8 +460,18 @@ ax.text(
     bbox={'facecolor': 'white', 'alpha': 0.75, 'edgecolor': 'none'},
 )
 ax.legend(loc='lower right')
-
 plt.show()
+"""
+    )
+)
+
+cells.append(
+    md(
+        """
+**Lectura rapida - Grafica 8.4**  
+- **Que muestra:** concentracion de canciones en combinaciones de bailabilidad y energia.  
+- **Como leerla:** tonos mas intensos indican mayor densidad de canciones en esa zona.  
+- **Conclusion clave:** la relacion global entre ambas variables es interpretable con la linea de tendencia y la correlacion.
 """
     )
 )
@@ -404,7 +479,7 @@ plt.show()
 cells.append(
     code(
         """
-# Correlacion de variables numericas
+# 8.5 Matriz de correlacion (triangular, anotada y en espanol)
 cols_num = [
     'duration_ms', 'popularity', 'danceability', 'energy', 'key', 'loudness',
     'mode', 'instrumentalness', 'tempo', 'stream_count', 'explicit'
@@ -427,7 +502,6 @@ traduccion_vars = {
     'stream_count': 'reproducciones',
     'explicit': 'explicita',
 }
-
 corr_es = corr.rename(index=traduccion_vars, columns=traduccion_vars)
 mask = np.triu(np.ones_like(corr_es, dtype=bool))
 
@@ -446,6 +520,7 @@ sns.heatmap(
     ax=ax,
 )
 ax.set_title('Matriz de correlacion - Spotify (triangular)')
+plt.show()
 
 pairs = (
     corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
@@ -453,21 +528,38 @@ pairs = (
     .sort_values(key=lambda s: s.abs(), ascending=False)
     .head(6)
 )
-
 tabla_corr = pairs.reset_index()
 tabla_corr.columns = ['variable_1', 'variable_2', 'correlacion']
 tabla_corr['variable_1'] = tabla_corr['variable_1'].map(traduccion_vars)
 tabla_corr['variable_2'] = tabla_corr['variable_2'].map(traduccion_vars)
 tabla_corr['correlacion'] = tabla_corr['correlacion'].round(3)
+
 print('Top 6 correlaciones (valor absoluto):')
 display(tabla_corr)
-
-plt.show()
 """
     )
 )
 
-cells.append(md("## 9. Modelo de clasificacion tabular (objetivo: genre)"))
+cells.append(
+    md(
+        """
+**Lectura rapida - Grafica 8.5**  
+- **Que muestra:** intensidad y direccion de relacion entre variables numericas.  
+- **Como leerla:** valores cercanos a 1 o -1 indican relacion fuerte; cercanos a 0, relacion debil.  
+- **Conclusion clave:** la tabla inferior resume las relaciones mas relevantes para argumentar resultados.
+"""
+    )
+)
+
+cells.append(md("## 9. Modelos de clasificacion (tema requerido)"))
+cells.append(
+    md(
+        """
+**Concepto tecnico:** *clasificacion supervisada* es predecir una categoria objetivo a partir de variables de entrada.  
+**Objetivo del modelo:** predecir el **genero musical** (`genero_es`).
+"""
+    )
+)
 cells.append(
     code(
         """
@@ -476,12 +568,12 @@ target = 'genero_es'
 df_modelo = df_limpio.copy()
 df_modelo = df_modelo[df_modelo[target].notna()].copy()
 
-# Reducir cardinalidad para estabilidad del modelo
+# Filtrado minimo de clases para estabilidad estadistica
 conteo_gen = df_modelo[target].astype(str).value_counts()
 generos_validos = conteo_gen[conteo_gen >= 30].index
 df_modelo = df_modelo[df_modelo[target].astype(str).isin(generos_validos)].copy()
 
-# Feature engineering temporal
+# Variables temporales auxiliares
 df_modelo['release_year'] = pd.to_datetime(df_modelo['release_date'], errors='coerce').dt.year
 df_modelo['release_month'] = pd.to_datetime(df_modelo['release_date'], errors='coerce').dt.month
 
@@ -492,15 +584,16 @@ y = df_modelo[target].astype(str)
 num_cols = X.select_dtypes(include=['number']).columns.tolist()
 cat_cols = [c for c in X.columns if c not in num_cols]
 
+# Concepto tecnico: train/test split separa entrenamiento y prueba para medir generalizacion real
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
+# Preprocesamiento por tipo de dato
 pre_num = Pipeline(steps=[
     ('imputer', SimpleImputer(strategy='median')),
     ('scaler', StandardScaler()),
 ])
-
 pre_cat = Pipeline(steps=[
     ('imputer', SimpleImputer(strategy='most_frequent')),
     ('onehot', OneHotEncoder(handle_unknown='ignore')),
@@ -532,6 +625,7 @@ print('Generos incluidos:', sorted(y.unique().tolist()))
 cells.append(
     code(
         """
+# Entrenamiento y comparacion
 resultados = []
 
 for nombre, modelo in [('LogisticRegression', modelo_logreg), ('RandomForest', modelo_rf)]:
@@ -558,13 +652,20 @@ pred_mejor = mejor_modelo.predict(X_test)
 print(f'Mejor modelo: {mejor_nombre}')
 print('\nReporte de clasificacion (tabular):')
 print(classification_report(y_test, pred_mejor))
+"""
+    )
+)
 
+cells.append(
+    code(
+        """
+# Matriz de confusion normalizada (porcentaje)
 labels = sorted(y.unique())
-cm = confusion_matrix(y_test, pred_mejor, labels=labels, normalize='true')
+cm_norm = confusion_matrix(y_test, pred_mejor, labels=labels, normalize='true')
 
 fig, ax = plt.subplots(figsize=(10, 8), constrained_layout=True)
 sns.heatmap(
-    cm,
+    cm_norm,
     cmap='Blues',
     ax=ax,
     xticklabels=labels,
@@ -583,7 +684,53 @@ plt.show()
     )
 )
 
-cells.append(md("## 10. Modelo NLP clasico (TF-IDF + LogisticRegression)"))
+cells.append(
+    code(
+        """
+# Matriz de confusion en valores absolutos (conteos)
+cm_abs = confusion_matrix(y_test, pred_mejor, labels=labels)
+
+fig, ax = plt.subplots(figsize=(10, 8), constrained_layout=True)
+sns.heatmap(
+    cm_abs,
+    cmap='YlGnBu',
+    ax=ax,
+    xticklabels=labels,
+    yticklabels=labels,
+    annot=True,
+    fmt='d',
+    cbar_kws={'label': 'Cantidad de observaciones'},
+)
+ax.set_title(f'Matriz de confusion absoluta - {mejor_nombre}')
+ax.set_xlabel('Prediccion')
+ax.set_ylabel('Real')
+ax.tick_params(axis='x', rotation=45)
+ax.tick_params(axis='y', rotation=0)
+plt.show()
+"""
+    )
+)
+
+cells.append(
+    md(
+        """
+**Lectura rapida - Matrices de confusion**  
+- **Normalizada (%):** indica que proporcion de cada genero real fue clasificado correctamente o confundido.  
+- **Absoluta (conteos):** muestra volumen real de errores/aciertos por clase.  
+- **Uso en exposicion:** primero explica la normalizada (comparacion justa), luego respalda con conteos absolutos.
+"""
+    )
+)
+
+cells.append(md("## 10. Modelo de lenguaje NLP (tema requerido)"))
+cells.append(
+    md(
+        """
+**Concepto tecnico:** *NLP* (Natural Language Processing) permite modelar texto.  
+**Enfoque aplicado:** convertir texto a vectores con **TF-IDF** y clasificar genero con Regresion Logistica.
+"""
+    )
+)
 cells.append(
     code(
         """
@@ -593,6 +740,7 @@ df_nlp = df_nlp[df_nlp['genero_es'].notna()].copy()
 texto_cols = ['track_name', 'artist_name', 'album_name', 'label', 'country']
 texto_cols = [c for c in texto_cols if c in df_nlp.columns]
 
+# Construccion de texto consolidado por pista
 df_nlp['texto'] = (
     df_nlp[texto_cols]
     .astype('string')
@@ -602,6 +750,7 @@ df_nlp['texto'] = (
     .str.strip()
 )
 
+# Filtrado de clases con muy pocas observaciones
 conteo_nlp = df_nlp['genero_es'].astype(str).value_counts()
 generos_nlp_validos = conteo_nlp[conteo_nlp >= 30].index
 df_nlp = df_nlp[df_nlp['genero_es'].astype(str).isin(generos_nlp_validos)].copy()
@@ -627,7 +776,15 @@ print(classification_report(yte, pred_nlp))
     )
 )
 
-cells.append(md("## 11. OpenAI - Resumen y Q&A"))
+cells.append(md("## 11. Modelos de IA OpenAI (tema requerido)"))
+cells.append(
+    md(
+        """
+**Concepto tecnico:** un modelo generativo puede sintetizar hallazgos y responder preguntas sobre resultados analiticos.  
+**Enfoque aplicado:** resumen ejecutivo del AED/modelos + pregunta puntual de interpretacion.
+"""
+    )
+)
 cells.append(
     code(
         """
@@ -703,16 +860,47 @@ Incluye: calidad de datos, tendencias por genero y conclusiones de modelado.
     )
 )
 
+cells.append(md("## 12. Glosario tecnico (nivel intermedio)"))
 cells.append(
     md(
         """
-## 12. Conclusiones
+- **AED:** analisis exploratorio para entender forma y calidad de los datos.  
+- **Variable objetivo (target):** columna que el modelo intenta predecir.  
+- **Train/Test Split:** separacion entre datos para entrenar y datos para evaluar.  
+- **Pipeline:** cadena de pasos automatizados (preprocesamiento + modelo).  
+- **One-Hot Encoding:** transforma categorias en columnas numericas binarias.  
+- **F1 Macro:** promedio del F1 por clase, util cuando hay varias clases.  
+- **Matriz de confusion:** tabla de aciertos y errores por clase real/predicha.  
+- **TF-IDF:** pondera palabras por importancia relativa dentro del corpus.  
+- **N-grama:** secuencia de n palabras contiguas (ej. bigrama = 2 palabras).  
+- **Temperatura (LLM):** controla aleatoriedad de la respuesta generativa.
+"""
+    )
+)
 
-- Se realizo un AED completo sobre Spotify con enfoque en genero, pais y sello discografico.
-- Se aplico visualizacion con buenas practicas de matplotlib (API orientada a objetos).
-- Se entrenaron modelos tabulares para clasificar `genre` y se compararon metricas.
-- Se construyo un modelo NLP clasico para clasificar genero desde texto de pistas y metadatos.
-- Se integro OpenAI para resumen ejecutivo y preguntas en lenguaje natural.
+cells.append(md("## 13. Guion breve para exposicion"))
+cells.append(
+    md(
+        """
+1. Primero explico calidad del dataset (nulos, tipos y volumen).  
+2. Luego muestro distribucion por genero y evolucion temporal para contexto.  
+3. Presento relaciones entre variables (bailabilidad, energia, popularidad).  
+4. Paso a clasificacion tabular y comparo modelos con F1 macro.  
+5. Interpreto matrices de confusion (porcentaje y conteo).  
+6. Finalmente muestro NLP y apoyo con resumen/Q&A de OpenAI.
+"""
+    )
+)
+
+cells.append(
+    md(
+        """
+## 14. Conclusiones
+
+- Se aplicaron los cuatro temas solicitados de forma trazable y explicable.
+- Las graficas fueron redisenadas para lectura verbal clara y argumentacion academica.
+- La clasificacion tabular y NLP permiten comparar enfoques sobre datos estructurados y texto.
+- OpenAI aporta capa interpretativa para sintetizar resultados tecnicos en lenguaje natural.
 """
     )
 )
