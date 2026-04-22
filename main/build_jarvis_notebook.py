@@ -166,10 +166,10 @@ cells.append(
 print('Columnas del dataset:')
 print(df.columns.tolist())
 
-print('\nTipos de datos:')
+print('\\nTipos de datos:')
 print(df.dtypes)
 
-print('\nResumen de memoria (deep):')
+print('\\nResumen de memoria (deep):')
 df.info(memory_usage='deep')
 """
     )
@@ -650,7 +650,7 @@ mejor_modelo = modelo_logreg if mejor_nombre == 'LogisticRegression' else modelo
 
 pred_mejor = mejor_modelo.predict(X_test)
 print(f'Mejor modelo: {mejor_nombre}')
-print('\nReporte de clasificacion (tabular):')
+print('\\nReporte de clasificacion (tabular):')
 print(classification_report(y_test, pred_mejor))
 """
     )
@@ -770,7 +770,7 @@ pred_nlp = modelo_nlp.predict(Xte)
 
 print('Accuracy NLP:', round(accuracy_score(yte, pred_nlp), 4))
 print('F1 macro NLP:', round(f1_score(yte, pred_nlp, average='macro'), 4))
-print('\nReporte NLP:')
+print('\\nReporte NLP:')
 print(classification_report(yte, pred_nlp))
 """
     )
@@ -831,7 +831,7 @@ Incluye: calidad de datos, tendencias por genero y conclusiones de modelado.
             ],
             temperature=0.2,
         )
-        print('Resumen OpenAI:\n')
+        print('Resumen OpenAI:\\n')
         print(resp.choices[0].message.content)
     except openai.AuthenticationError as e:
         print(f'Error de autenticacion OpenAI: {e}')
@@ -852,7 +852,7 @@ Incluye: calidad de datos, tendencias por genero y conclusiones de modelado.
             ],
             temperature=0.2,
         )
-        print('\nRespuesta Q y A OpenAI:\n')
+        print('\\nRespuesta Q y A OpenAI:\\n')
         print(resp_qa.choices[0].message.content)
     except Exception as e:
         print(f'No se pudo completar Q y A OpenAI: {e}')
